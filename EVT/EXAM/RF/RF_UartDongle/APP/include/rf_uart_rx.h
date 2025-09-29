@@ -20,7 +20,7 @@ extern "C"
 #define   RF_BUF_LEN   512
 
 
-#define  CONN_INTERVAL     50
+#define  CONN_INTERVAL     10
 #define  CONN_TIMEOUT      100
 #define  CONN_PHY_TYPE     1   // 2M
 

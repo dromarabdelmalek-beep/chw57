@@ -61,6 +61,8 @@ int main()
     uint16_t i;
     uint8_t  s;
 
+    // 关闭两线调试
+    R16_PIN_ALTERNATE &= ~RB_PIN_DEBUG_EN;
     HSECFG_Capacitance(HSECap_18p);
     SetSysClock(CLK_SOURCE_HSE_PLL_100MHz);
 
@@ -87,7 +89,7 @@ int main()
         }
     }
 #endif
-    R16_PIN_ALTERNATE &= ~RB_PIN_DEBUG_EN;R16_PIN_ALTERNATE &= ~RB_PIN_DEBUG_EN;//使用USB要关掉两线调试
+    R16_PIN_ALTERNATE &= ~RB_PIN_DEBUG_EN;//使用USB要关掉两线调试
     /* USB初始化 */
     R8_USB_CTRL = 0x00; // 先设定模式,取消 RB_UC_CLR_ALL
 

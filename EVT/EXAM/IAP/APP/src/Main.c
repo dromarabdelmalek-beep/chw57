@@ -40,6 +40,8 @@ int main()
     uint16_t i = 0;
     uint8_t  s = 0;
 
+    // 关闭两线调试
+    R16_PIN_ALTERNATE &= ~RB_PIN_DEBUG_EN;
     LClk_Cfg(ENABLE);
     HSECFG_Capacitance(HSECap_18p);
     SetSysClock(CLK_SOURCE_HSE_PLL_100MHz);

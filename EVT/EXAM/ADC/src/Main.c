@@ -211,6 +211,8 @@ uint32_t ADC_4bit_Sample()
  */
 int main()
 {
+    // 关闭两线调试
+    R16_PIN_ALTERNATE &= ~RB_PIN_DEBUG_EN;
     HSECFG_Capacitance(HSECap_18p);
     SetSysClock(CLK_SOURCE_HSE_PLL_100MHz);
     /* 配置串口1：先配置IO口模式，再配置串口 */

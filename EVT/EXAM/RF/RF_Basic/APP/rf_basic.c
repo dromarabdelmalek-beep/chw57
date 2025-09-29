@@ -1,17 +1,15 @@
 /********************************** (C) COPYRIGHT *******************************
- * File Name          : rf_basic.c
+ * File Name          : RF_basic.c
  * Author             : WCH
  * Version            : V1.0
- * Date               : 2024/08/15
+ * Date               : 2025/06/24
  * Description        : 2.4G¿â»ù±¾Ä£Ê½ÊÕ·¢²âÊÔÀý³Ì
  *
- *                      ¹¦ÂÊÉèÖÃ
- *                      RFIP_SetTxPower
- *                      1. Ö§³Ö-20dBm ~ 4dBm ¶¯Ì¬µ÷Õû
+ *                      1. ¹¦ÂÊÉèÖÃ
+ *                      txPowerVal£¬Ö§³Ö-25dBm ~ +7dBm ¶¯Ì¬µ÷Õû
  *
- *                      ·¢ËÍ×´Ì¬ÇÐ»»ÎÈ¶¨Ê±¼ä
- *                      RFIP_SetTxDelayTime
- *                      1.Èç¹ûÐèÒªÇÐ»»Í¨µÀ·¢ËÍ£¬ÎÈ¶¨Ê±¼ä²»µÍÓÚ80us
+ *                      2.·¢ËÍ×´Ì¬ÇÐ»»ÎÈ¶¨Ê±¼ä
+ *                      waitTime£¬Èç¹ûÐèÒªÇÐ»»Í¨µÀ·¢ËÍ£¬ÎÈ¶¨Ê±¼ä²»µÍÓÚ80us
  *
  * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
  * SPDX-License-Identifier: Apache-2.0
@@ -35,18 +33,20 @@ __attribute__((__aligned__(4))) uint8_t RxBuf[264]; // ½ÓÊÕDMA buf²»ÄÜÐ¡ÓÚ264×Ö½
 #define  MODE_RX     0
 #define  MODE_TX     1
 
-#define  WAIT_ACK         1               // ÊÇ·ñÊ¹ÄÜACK
+#define  WAIT_ACK         0               // ÊÇ·ñÊ¹ÄÜACK
 #define  TEST_DATA_LEN    4               // Êý¾Ý³¤¶È
 #define  TEST_FREQUENCY   16              // Í¨ÐÅÆµµã
 
-//#define  TEST_MODE     MODE_TX            // ·¢ËÍÄ£Ê½
-#define  TEST_MODE     MODE_RX            // ½ÓÊÕÄ£Ê½
+#define  TEST_MODE     MODE_TX            // ·¢ËÍÄ£Ê½
+//#define  TEST_MODE     MODE_RX            // ½ÓÊÕÄ£Ê½
 
 #define  RF_DEVICE_PERIDOC    1000
 
 uint32_t volatile gTxCount;
 uint32_t volatile gRxCount;
-volatile int Rssi_sum=0;
+int32_t  volatile Rssi_sum=0;
+
+int8_t gRssi=0;
 
 /******************************** ·¢ËÍÏà¹Øº¯Êý ********************************/
 /**
@@ -151,13 +151,20 @@ void rf_rx_process_data( void )
     gRxCount ++;
     {
         uint8_t *pData = (uint8_t *)gRxParam.rxDMA;
-        Rssi_sum += (int8_t)pData[TEST_DATA_LEN+2];
-//        PRINT("#R %d\n",(int8_t)pData[6]);
-//        for( int i=0;i<4;i++ )
-//        {
-//            PRINT("%x\t",pData[i]);
-//        }
-//        PRINT("\n");
+#if(TEST_MODE == MODE_RX)               // rx
+        Rssi_sum += (int8_t)pData[TEST_DATA_LEN+RSSI_OFFSET];
+#else
+        #if( WAIT_ACK )                 // tx ack
+            uint8_t AckLen = pData[1];
+            gRssi = (int8_t)pData[AckLen+RSSI_OFFSET];
+        #endif
+#endif
+//     for( int i=0;i<TEST_DATA_LEN;i++ )
+//     {
+//         PRINT("%x\n",pData[i]);
+//     }
+//     PRINT("\n");
+
     }
 }
 
@@ -200,7 +207,7 @@ void BB_IRQHandler( void )
  * @return  None.
  */
 __HIGH_CODE
-void RF_ProcessCallBack( rfRole_States_t sta,uint8_t id  )
+void RF_ProcessCallBack( rfRole_States_t sta,uint8_t id )
 {
     if( sta&RF_STATE_RX )
     {
@@ -257,10 +264,12 @@ void TMR_IRQHandler(void) // TMR ¶¨Ê±ÖÐ¶Ï
         Rssi_sum = 0;
 #else
         // ³õÊ¼»¯·¢ËÍµÄÊý¾Ý
-        TxBuf[0] = TEST_DATA_LEN;
-        TxBuf[1] ++;
-        TxBuf[2] = 0x02;
-        TxBuf[3] = 0x03;
+        TxBuf[0] = 0x55;
+        TxBuf[1] = TEST_DATA_LEN;        // ´Ë×Ö½Ú¹Ì¶¨ÎªÊý¾Ý³¤¶È£¬´Ó´ËÍùºóÓÐTEST_DATA_LEN×Ö½ÚÊý¾Ý
+        TxBuf[2] ++;
+        TxBuf[3] = 3;
+        TxBuf[4] = 4;
+        TxBuf[5] = gRssi;
         rf_tx_start( TxBuf );
 #endif
     }
@@ -280,11 +289,6 @@ void RFRole_Init(void)
     sys_safe_access_enable( );
     R32_MISC_CTRL = (R32_MISC_CTRL&(~(0x3f<<24)))|(0xe<<24);
     sys_safe_access_disable( );
-
-#if(PHY_2G4_MODE == 1 )
-    PKT_DET_CFG4(0x78);
-#endif
-
     {
         rfRoleConfig_t conf ={0};
         conf.rfProcessCB = RF_ProcessCallBack;
@@ -293,42 +297,31 @@ void RFRole_Init(void)
     }
     TPROPERTIES_CFG Properties;
     {
-        Properties.cfgVal = BB_WHITENING_OFF|TEST_PHY_MODE;
-#if(TEST_PHY_MODE == PHY_MODE_2G4 )
-        Properties.lengthCrc = CRC_LEN;
-        Properties.ctlFiled = CTL_FILED;
-        Properties.lengthAA = AA_LEN;
-        Properties.lengthPreamble = PRE_LEN;
-        Properties.dplEnable = DPL_EN;
-        Properties.mode2G4 = MODE_2G4;
-        Properties.bitOrderData = DATA_ORDER;
-        Properties.crcXOREnable = CRC_XOR_EN;
-#endif
+        Properties.cfgVal = PHY_MODE_PHY_2M;        // BLE 2MÄ£Ê½
         PRINT("cfgVal=%x\n",Properties.cfgVal);
-    }
-
-    // TXÏà¹Ø²ÎÊý£¬È«¾Ö±äÁ¿
-    {
-        gTxParam.accessAddress = AA;
-        gTxParam.accessAddressEx = AA_EX;
-        gTxParam.crcInit = CRC_INIT;
-        gTxParam.crcPoly = CRC_POLY;
-        gTxParam.properties = Properties.cfgVal;
-        gTxParam.waitTime = 80*2;
-        gTxParam.txPowerVal = LL_TX_POWEER_0_DBM;
-        gTxParam.txLen = TEST_DATA_LEN;
     }
 
     // RXÏà¹Ø²ÎÊý£¬È«¾Ö±äÁ¿
     {
-        gRxParam.accessAddress = AA;
-        gRxParam.accessAddressEx = AA_EX;
+        gRxParam.accessAddress = ACCESS_ADR;        // Rx½ÓÈëµØÖ·
         gRxParam.crcInit = CRC_INIT;
         gRxParam.crcPoly = CRC_POLY;
         gRxParam.properties = Properties.cfgVal;
         gRxParam.rxDMA = (uint32_t)RxBuf;
         gRxParam.rxMaxLen = TEST_DATA_LEN;
     }
+
+    // TXÏà¹Ø²ÎÊý£¬È«¾Ö±äÁ¿
+    {
+        gTxParam.accessAddress = ACCESS_ADR;         // Tx½ÓÈëµØÖ·
+        gTxParam.crcInit = CRC_INIT;
+        gTxParam.crcPoly = CRC_POLY;
+        gTxParam.properties = Properties.cfgVal;
+        gTxParam.waitTime = 80*2;
+        gTxParam.txPowerVal = LL_TX_PWR_6_DBM;    // Tx·¢Éä¹¦ÂÊ
+        gTxParam.txLen = TEST_DATA_LEN;
+    }
+
     PFIC_EnableIRQ( BLEB_IRQn );
     PFIC_EnableIRQ( BLEL_IRQn );
 
@@ -338,8 +331,9 @@ void RFRole_Init(void)
     gRxCount = 0;
     PRINT("start rx...%d\n",GetSysClock());
     rf_rx_start();
-    TMR_TimerInit( GetSysClock() / 2 ); // 500msÍ³¼ÆÒ»´Î
-    TMR_ITCfg(ENABLE, TMR_IT_CYC_END);  // ¿ªÆôÖÐ¶Ï
+    PRINT("rx channel...%d\n",gRxParam.frequency);
+    TMR_TimerInit( GetSysClock() / 2 );             // 500msÍ³¼ÆÒ»´Î
+    TMR_ITCfg(ENABLE, TMR_IT_CYC_END);// ¿ªÆôÖÐ¶Ï
     PFIC_EnableIRQ(TMR_IRQn);
 #else
     PRINT("----------------- tx -----------------\n");
@@ -347,7 +341,6 @@ void RFRole_Init(void)
     gRxCount = 0;
     PRINT("start tx timer...\n");
     TMR_TimerInit( GetSysClock() / RF_DEVICE_PERIDOC );
-
     TMR_ITCfg(ENABLE, TMR_IT_CYC_END); // ¿ªÆôÖÐ¶Ï
     PFIC_EnableIRQ(TMR_IRQn);
 #endif

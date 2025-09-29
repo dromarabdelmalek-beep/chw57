@@ -50,6 +50,8 @@ static void i2c_on_slave_receive_user(uint8_t *data, uint8_t len)
 int main()
 {
     uint8_t i = 0;
+    // 关闭两线调试
+    R16_PIN_ALTERNATE &= ~RB_PIN_DEBUG_EN;
     HSECFG_Capacitance(HSECap_18p);
     SetSysClock(CLK_SOURCE_HSE_PLL_100MHz);
     GPIOA_SetBits(bTXD_0);

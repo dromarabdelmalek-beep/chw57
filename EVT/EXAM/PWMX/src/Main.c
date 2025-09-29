@@ -15,6 +15,7 @@
 #define  PWM8     1
 #define  PWM16    0
 
+uint16_t nextPWMCyc = 50000-1;
 
 /*********************************************************************
  * @fn      main
@@ -25,6 +26,8 @@
  */
 int main()
 {
+    // 关闭两线调试
+    R16_PIN_ALTERNATE &= ~RB_PIN_DEBUG_EN;
     HSECFG_Capacitance(HSECap_18p);
     SetSysClock(CLK_SOURCE_HSE_PLL_100MHz);
 
@@ -66,7 +69,39 @@ int main()
     PWMX_16bit_ACTOUT(CH_PWM4, 30000, High_Level, ENABLE); // 50%占空比
     PWMX_16bit_ACTOUT(CH_PWM5, 15000, High_Level, ENABLE); // 25%占空比
 
+
+#if 1
+    // 切换周期演示，在进行周期切换时需要等到上一个周期完成后再切，以PWM1为例
+    nextPWMCyc = 50000/2-1;
+    PWM_INTCfg(ENABLE, RB_PWM_IE_CYC);
+    PFIC_EnableIRQ(PWMX_IRQn);
+
+#endif
+
 #endif
 
     while(1);
 }
+
+
+/*********************************************************************
+ * @fn      PWMX_IRQHandler
+ *
+ * @brief   PWMX中断函数
+ *
+ * @return  none
+ */
+__INTERRUPT
+__HIGH_CODE
+void PWMX_IRQHandler(void)
+{
+    if(R8_PWM_INT_FLAG & RB_PWM_IF_CYC)
+    {
+        R8_PWM_INT_FLAG = RB_PWM_IF_CYC;
+        PWMX_16bit_ACTOUT(CH_PWM1, nextPWMCyc/2, Low_Level, ENABLE);  // 切换周期时需要先改变占空比
+        PWMX_16bit_CycleCfg(CH_PWM1, nextPWMCyc);
+    }
+    PFIC_DisableIRQ(PWMX_IRQn);
+}
+
+

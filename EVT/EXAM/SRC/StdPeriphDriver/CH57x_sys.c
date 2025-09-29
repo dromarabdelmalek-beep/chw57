@@ -31,6 +31,7 @@ void SetSysClock(SYS_CLKTypeDef sc)
     if(sc == RB_CLK_SYS_MOD)  // LSI
     {
         sys_safe_access_enable();
+        R8_SLP_POWER_CTRL |= 0x40;
         R8_CLK_SYS_CFG |= RB_CLK_SYS_MOD;
         sys_safe_access_disable();
     }
@@ -82,6 +83,7 @@ void SetSysClock(SYS_CLKTypeDef sc)
         }
 
         sys_safe_access_enable();
+        R8_SLP_POWER_CTRL |= 0x40;
         R8_CLK_SYS_CFG = sc;
         sys_safe_access_disable();
     }
@@ -288,6 +290,23 @@ void HardFault_Handler(void)
     sys_safe_access_enable();
     R8_RST_WDOG_CTRL |= RB_SOFTWARE_RESET;
     sys_safe_access_disable();
+    while(1);
+}
+
+/*********************************************************************
+ * @fn      NMI_Handler
+ *
+ * @brief   不可屏蔽中断，电压监控生效时进入
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+__INTERRUPT
+__HIGH_CODE
+__attribute__((weak))
+void NMI_Handler(void)
+{
     while(1);
 }
 

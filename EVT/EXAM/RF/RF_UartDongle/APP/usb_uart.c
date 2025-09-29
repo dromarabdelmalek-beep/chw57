@@ -13,6 +13,8 @@
 #include "CH57x_common.h"
 #include "usb_uart.h"
 #include "rf_uart_rx.h"
+#include "rf.h"
+#include "buf.h"
 
 #define THIS_ENDP0_SIZE         64
 #define MAX_PACKET_SIZE         64
@@ -22,7 +24,6 @@
 
 /* USB工作模式 */
 #define  USB_WORK_MODE     USB_VENDOR_MODE
-
 
 
 /* CDC相关参数 */
@@ -218,9 +219,10 @@ __aligned(4) uint8_t Ep1OUTDataBuf[MAX_PACKET_SIZE];
 
 
 /* 端点2下传数据 */
-uint8_t Ep2DataOUTFlag = 0;
-uint8_t Ep2DataOUTLen = 0;
-__aligned(4) uint8_t Ep2OUTDataBuf[MAX_PACKET_SIZE];
+//uint8_t Ep2DataOUTFlag = 0;
+//uint8_t Ep2DataOUTLen = 0;
+//__aligned(4) uint8_t Ep2OUTDataBuf[MAX_PACKET_SIZE];
+uint32_t gEnd2DataLen;
 
 /* 保存USB中断的状态 ->改成几组的操作方式 */
 #define USB_IRQ_FLAG_NUM     4
@@ -237,7 +239,6 @@ uint8_t ven_ep1_trans_step = 0;
 
 /* 端点0枚举上传帧处理 */
 uint8_t ep0_send_buf[256];
-
 
 /**********************************************************/
 uint8_t DevConfig;
@@ -265,6 +266,26 @@ const uint8_t *pDescr;
 
 /* 端点状态设置函数 */
 void USBDevEPnINSetStatus(uint8_t ep_num, uint8_t type, uint8_t sta);
+
+#define USB_BUF_LEN     512
+static struct simple_buf *pUsbBuf = NULL;
+static struct simple_buf usb_buffer;
+static uint8_t usb_buf[USB_BUF_LEN];
+
+/*********************************************************************
+ * @fn      uart_buffer_create
+ *
+ * @brief   Create a file called uart_buffer simple buffer of the buffer
+ *          and assign its address to the variable pointed to by the buffer pointer.
+ *
+ * @param   buf    -   a parameter buf pointing to a pointer.
+ *
+ * @return  none
+ */
+static void usb_buffer_create(struct simple_buf **buf)
+{
+    *buf = simple_buf_create(&usb_buffer, usb_buf, sizeof(usb_buf) );
+}
 
 /*******************************************************************************
 * Function Name  : CH341RegWrite
@@ -354,7 +375,7 @@ void CH341RegWrite(uint8_t reg_add,uint8_t reg_val)
     case 0x25: break;
     case 0x27:
     {
-      PRINT("modem set:%02x\r\n",reg_val);
+//      PRINT("modem set:%02x\r\n",reg_val);
 //      SetUART0ModemVendorSta(reg_val);
       break;
     }
@@ -509,11 +530,18 @@ void USB_IRQHandler(void)
         {
           if( R8_USB_INT_FG & RB_U_TOG_OK ){   //不同步的数据包将丢弃
             R8_UEP2_CTRL ^=  RB_UEP_R_TOG;
-            R8_UEP2_CTRL = (R8_UEP2_CTRL & ~MASK_UEP_R_RES) | UEP_R_RES_NAK; //OUT_NAK
             /* 保存数据 */
-            for(j=0; j<(MAX_PACKET_SIZE/4); j++)
+            typeBufSize data_len;
+
+            data_len = usb_irq_len[usb_irq_w_idx];
+            gEnd2DataLen = write_buf( pUsbBuf,Ep2Buffer, &data_len );
+            if( !data_len )
             {
-                ((UINT32 *)Ep2OUTDataBuf)[j] = ((UINT32 *)Ep2Buffer)[j];
+                PRINT("why??? l=%d\n ", gEnd2DataLen );
+            }
+            if( gEnd2DataLen > (USB_BUF_LEN-MAX_PACKET_SIZE) )
+            {
+                R8_UEP2_CTRL = (R8_UEP2_CTRL & ~MASK_UEP_R_RES) | UEP_R_RES_NAK; //OUT_NAK
             }
           }
           else
@@ -653,9 +681,7 @@ void USB_IRQProcessHandler( void )   /* USB中断服务程序 */
         }
         case UIS_TOKEN_OUT | 2:    // endpoint 2# 批量端点下传完成
         {
-            Ep2DataOUTLen = usb_irq_len[i];
-            gUartRxCount += Ep2DataOUTLen;
-            Ep2DataOUTFlag = 1;
+            gUartRxCount += usb_irq_len[i];
             break;
         }
         case UIS_TOKEN_IN | 2:  //endpoint 2# 批量端点上传完成
@@ -992,6 +1018,7 @@ void USB_IRQProcessHandler( void )   /* USB中断服务程序 */
                   len = 0;
                   Uart0Para.ioStaus = Ep0Buffer[2];
                   UART_Status = 1;
+                  PRINT("set moden:%x\r\n",Uart0Para.ioStaus);
                   break;
                 }
                 case DEF_VEN_BUF_CLEAR: //0XB2  /* 清除未完成的数据 */
@@ -1860,38 +1887,19 @@ void USB_StatusQuery( void )
     if( devinf.UsbAddress )
     {
 #if ( USB_WORK_MODE== USB_VENDOR_MODE)
+        if( (R8_UEP2_CTRL&MASK_UEP_T_RES) == UEP_T_RES_NAK )
         {
-            if( (R8_UEP2_CTRL&MASK_UEP_T_RES) == UEP_T_RES_NAK )
+            len  = MAX_PACKET_SIZE/2;
+            if( RF_RxQuery( &Ep2Buffer[64], &len ) )
             {
-                len  = MAX_PACKET_SIZE/2;
-                if( RF_RxQuery( &Ep2Buffer[64], &len ) )
+                if( len > 32 )
                 {
-                    if( len > 32 )
-                    {
-                        PRINT("!!! error usb in l=%d %x\n",len,R8_UEP2_CTRL);
-                    }
-                    R8_UEP2_T_LEN = (uint8_t)len;
-                    PFIC_DisableIRQ(USB_IRQn);
-                    R8_UEP2_CTRL = (R8_UEP2_CTRL & ~MASK_UEP_T_RES) | UEP_T_RES_ACK; //IN_ACK
-                    PFIC_EnableIRQ(USB_IRQn);
+                    PRINT("!!! error usb in l=%d %x\n",len,R8_UEP2_CTRL);
                 }
-            }
-        }
-        /* CDC模式处理 */
-#else
-        {
-            if( Ep1DataINFlag )
-            {
-                len  = MAX_PACKET_SIZE;
-                if( RF_RxQuery( &Ep1Buffer[0], &len ) )
-                {
-                    /* 直接发送数据 */
-                    Ep1DataINFlag = 0;
-                    R8_UEP1_T_LEN = (uint8_t)len;
-                    PFIC_DisableIRQ(USB_IRQn);
-                    R8_UEP1_CTRL = R8_UEP1_CTRL & 0xfc; //IN_ACK
-                    PFIC_EnableIRQ(USB_IRQn);
-                }
+                R8_UEP2_T_LEN = (uint8_t)len;
+                PFIC_DisableIRQ(USB_IRQn);
+                R8_UEP2_CTRL = (R8_UEP2_CTRL & ~MASK_UEP_T_RES) | UEP_T_RES_ACK; //IN_ACK
+                PFIC_EnableIRQ(USB_IRQn);
             }
         }
 #endif
@@ -1918,18 +1926,7 @@ __HIGH_CODE
 uint8_t USB_RxQuery( void *buf, typeBufSize *len )
 {
     uint8_t *p;
-
-    if( Ep2DataOUTFlag )
-    {
-        *len = Ep2DataOUTLen;
-        __MCPY( buf,Ep2OUTDataBuf,&Ep2OUTDataBuf[Ep2DataOUTLen] );
-        PFIC_DisableIRQ(USB_IRQn);
-        Ep2DataOUTFlag = 0;
-        R8_UEP2_CTRL = (R8_UEP2_CTRL & ~MASK_UEP_R_RES)|UEP_R_RES_ACK; //OUT_ACK
-        PFIC_EnableIRQ(USB_IRQn);
-        return 0x0;
-    }
-    else if( devinf.UsbAddress )
+    if( devinf.UsbAddress )
     {
         if( UART_Status )
         {
@@ -1937,6 +1934,20 @@ uint8_t USB_RxQuery( void *buf, typeBufSize *len )
             *len = 0;
             return 0x80;
         }
+    }
+    if( gEnd2DataLen )
+    {
+        typeBufSize data_len;
+
+        *len = DATA_LEN_MAX_TX;
+        gEnd2DataLen = read_buf( pUsbBuf,buf,len  );
+        if( gEnd2DataLen < (USB_BUF_LEN-MAX_PACKET_SIZE) )
+        {
+            PFIC_DisableIRQ(USB_IRQn);
+            R8_UEP2_CTRL = (R8_UEP2_CTRL & ~MASK_UEP_R_RES)|UEP_R_RES_ACK; //OUT_ACK
+            PFIC_EnableIRQ(USB_IRQn);
+        }
+        return 0x0;
     }
     *len = 0;
     return 0xFF;
@@ -1958,6 +1969,7 @@ void USB_Init( void )
     InitUSBDevPara();
     InitUSBDevice();
     PFIC_EnableIRQ( USB_IRQn );
+    usb_buffer_create(&pUsbBuf);
 }
 
 

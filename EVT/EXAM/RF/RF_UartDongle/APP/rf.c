@@ -258,7 +258,7 @@ void RFRole_Init(void)
         gTxParam.crcPoly = CRC_POLY;
         gTxParam.properties = Properties.cfgVal;
         gTxParam.waitTime = 80*2;
-        gTxParam.txPowerVal = LL_TX_POWEER_0_DBM;
+        gTxParam.txPowerVal = LL_TX_PWR_0_DBM;
     }
 
     // RX相关参数，全局变量

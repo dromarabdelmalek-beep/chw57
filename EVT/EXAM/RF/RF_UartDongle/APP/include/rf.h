@@ -17,7 +17,7 @@ extern "C"
 #include "CH57x_common.h"
 #include "buf.h"
 
-#define  DEF_FREQUENCY   33              // 通信频点
+#define  DEF_FREQUENCY   17              // 通信频点
 #define  TEST_PHY_MODE   PHY_MODE_PHY_2M
 
 #if(TEST_PHY_MODE == PHY_MODE_2G4 )

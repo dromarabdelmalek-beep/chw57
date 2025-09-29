@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
  * File Name          : main.c
  * Author             : WCH
- * Version            : V1.0
- * Date               : 2020/08/06
+ * Version            : V1.1
+ * Date               : 2025/06/27
  * Description        :
  *********************************************************************************
  * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -38,6 +38,8 @@ void process_main( void )
  */
 int main(void)
 {
+    // 关闭两线调试
+    R16_PIN_ALTERNATE &= ~RB_PIN_DEBUG_EN;
     HSECFG_Capacitance( HSECap_18p );
     SetSysClock( CLK_SOURCE_HSE_PLL_100MHz );
 #ifdef DEBUG

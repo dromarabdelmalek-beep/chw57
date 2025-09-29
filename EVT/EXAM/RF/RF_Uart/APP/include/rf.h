@@ -17,7 +17,7 @@ extern "C"
 #include "CH57x_common.h"
 #include "buf.h"
 
-#define  DEF_FREQUENCY   33              // 通信频点
+#define  DEF_FREQUENCY   17              // 通信频点
 #define  TEST_PHY_MODE   PHY_MODE_PHY_2M
 
 #if(TEST_PHY_MODE == PHY_MODE_2G4 )
@@ -161,7 +161,7 @@ typedef struct __attribute__((packed))
             uint32_t  BaudRate;   /* 波特率 */
             uint8_t StopBits;   /* 停止位计数，0：1停止位，1：1.5停止位，2：2停止位 */
             uint8_t ParityType;   /* 校验位，0：None，1：Odd，2：Even，3：Mark，4：Space */
-            uint8_t DataBits;   /* 数据位计数：5，6，7，8，16 */
+            uint8_t DataBits;   /* 数据位计数：5，6，7，8 */
             uint8_t ioStaus;
         } buad_t;
 

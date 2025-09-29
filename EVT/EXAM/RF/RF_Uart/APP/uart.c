@@ -16,7 +16,7 @@
 
 
 
-static uint8_t rx_buf[UART_BUF_LEN];
+static uint8_t uart_buf[UART_BUF_LEN];
 static struct simple_buf *pUartbuf = NULL;
 static struct simple_buf uart_buffer;
 
@@ -42,7 +42,7 @@ uint32_t gUartRxCount;
  */
 static void uart_buffer_create(struct simple_buf **buf)
 {
-    *buf = simple_buf_create(&uart_buffer, rx_buf, sizeof(rx_buf));
+    *buf = simple_buf_create(&uart_buffer, uart_buf, sizeof(uart_buf));
 }
 
 /*********************************************************************
@@ -57,7 +57,7 @@ static void uart_buffer_create(struct simple_buf **buf)
 __HIGH_CODE
 static void uart_rx_timeout( void )
 {
-    R32_TMR_CNT_END = (R16_UART_DL*8)*45; // 超时时间设置为45bit
+    R32_TMR_CNT_END = (R16_UART_DL*8)*100; // 超时时间设置为100bit
     R8_TMR_CTRL_MOD = RB_TMR_ALL_CLEAR;
     R8_TMR_CTRL_MOD = RB_TMR_COUNT_EN;
 }
@@ -226,10 +226,16 @@ void UART_IRQHandler(void)
             uart_flag = UART_STATUS_RCV_END;
             break;
 
-        case UART_II_THR_EMPTY: // 发送缓存区空，可继续发送
-            break;
-
         default:
+            if( gRfRxFlag )
+            {
+                len = UART_FIFO_SIZE-R8_UART_TFC;
+                gRfRxFlag = read_buf( pRfBuf,tmp_buf,&len );
+                for( int i=0; i<len; i++)
+                {
+                    R8_UART_THR = tmp_buf[i];
+                }
+            }
             break;
     }
 }
@@ -267,10 +273,13 @@ int uart_start_receiving(void)
  */
 void UART_Init(void)
 {
-
     gSysClock = GetSysClock();
 
-    // 设置DTR RTS为输出
+    //设置LED_PIN
+    GPIOA_SetBits(LED_PIN);
+    GPIOA_ModeCfg(LED_PIN, GPIO_ModeOut_PP_5mA);
+
+    //设置DTR、RTS为输出
     GPIOA_SetBits( (DTR|RTS) );
     GPIOA_ModeCfg( (DTR|RTS), GPIO_ModeOut_PP_5mA);
 
@@ -286,7 +295,7 @@ void UART_Init(void)
     UART_SetBuad( 115200 );
 
     UART_ByteTrigCfg(UART_4BYTE_TRIG);
-    UART_INTCfg(ENABLE, RB_IER_RECV_RDY | RB_IER_LINE_STAT);
+    UART_INTCfg(ENABLE, RB_IER_RECV_RDY | RB_IER_LINE_STAT|RB_IER_THR_EMPTY);
     uart_flag = UART_STATUS_IDLE;
     uart_start_receiving();
 }

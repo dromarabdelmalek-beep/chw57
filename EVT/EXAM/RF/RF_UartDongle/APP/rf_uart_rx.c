@@ -18,7 +18,7 @@
 /*********************************************************************
  * GLOBAL TYPEDEFS
  */
-static uint8_t rx_buf[RF_BUF_LEN];
+static uint8_t rf_buf[RF_BUF_LEN];
 static struct simple_buf *pRfBuf = NULL;
 static struct simple_buf rf_buffer;
 uint32_t gBaudRate;
@@ -62,8 +62,7 @@ rfStatusCBs_t rfCBs =
  */
 static void rf_buffer_create(struct simple_buf **buf)
 {
-    *buf = simple_buf_create(&rf_buffer, rx_buf, RF_BUF_LEN );
-    PRINT("buf len=%d\n",sizeof(rx_buf) );
+    *buf = simple_buf_create(&rf_buffer, rf_buf, sizeof(rf_buf) );
 }
 
 /*******************************************************************************
@@ -296,7 +295,7 @@ static void rfProcessRx( rfPackage_t *pPkt )
                 len -= PKT_DATA_OFFSET;
                 write_buf( pRfBuf, (pPkt+1), &len );
                 gRxDataStatus = DATA_STATUS_RCV;
-
+                // 如果接收缓存满，则会丢数据
                 len = DATA_LEN_MAX_TX;
                 pPkt_t->type = PKT_DATA_RSP_ACK;
                 if( gBoundStatus == BOUND_STATUS_EST && !USB_RxQuery( pRsp_t->other.rspData, &len ) )
@@ -393,7 +392,7 @@ static void rfProcessCrcError( void )
 __HIGH_CODE
 static void rfProcessTimeout( void )
 {
-    PRINT("r -timeout %x\n",gRfStatus);
+    // PRINT("r -timeout %x\n",gRfStatus);
     if( gBoundStatus && ++gTimeout > gTimeoutMax )
     {
         gRxDataStatus = DATA_STATUS_TIMEOUT;

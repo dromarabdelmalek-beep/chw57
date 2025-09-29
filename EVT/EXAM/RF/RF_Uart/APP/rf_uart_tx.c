@@ -29,8 +29,8 @@ uint16_t gServerData;
 uint8_t gTxDataSeq;
 uint8_t gRfStatus;
 uint8_t gBoundStatus;
-uint8_t volatile gRxDataFlag;
 uint8_t getDataProbe;
+uint32_t  gRfRxFlag;
 rfPackage_t *pPkt_t;
 
 static void rfProcessRx( rfPackage_t *pPkt );
@@ -45,6 +45,28 @@ rfStatusCBs_t rfCBs =
     rfProcessTimeout,
     rfProcessTimeout,
 };
+
+#define  RF_BUF_LEN    512
+static uint8_t rf_buf[RF_BUF_LEN];
+static struct simple_buf rf_buffer;
+struct simple_buf *pRfBuf = NULL;
+
+uint8_t volatile RF_bound_Flag;
+uint32_t ledcount = 0;
+/*********************************************************************
+ * @fn      uart_buffer_create
+ *
+ * @brief   Create a file called uart_buffer simple buffer of the buffer
+ *          and assign its address to the variable pointed to by the buffer pointer.
+ *
+ * @param   buf    -   a parameter buf pointing to a pointer.
+ *
+ * @return  none
+ */
+static void rf_buffer_create(struct simple_buf **buf)
+{
+    *buf = simple_buf_create(&rf_buffer, rf_buf, sizeof(rf_buf) );
+}
 
 /*******************************************************************************
  * @fn      rf_disconnect
@@ -65,6 +87,8 @@ static void rf_disconnect( void )
 
     rf_rx_set_sync_word( AA );
     rf_rx_set_frequency( DEF_FREQUENCY );
+
+    RF_bound_Flag = 0;
     PRINT("disconnect.\n" );
 }
 
@@ -80,7 +104,6 @@ static void rf_disconnect( void )
 __HIGH_CODE
 static void rf_bound( bound_rsp_t *rsp )
 {
-
     rfBoundInfo_t info;
 
     gTimeout = 0;
@@ -98,6 +121,8 @@ static void rf_bound( bound_rsp_t *rsp )
     info.serverData = gServerData;
     FLASH_ROM_ERASE( BOUND_INFO_FLASH_ADDR, 4096 );
     FLASH_ROM_WRITE( BOUND_INFO_FLASH_ADDR,&info,4 );
+    
+    RF_bound_Flag = 1;
     PRINT("bound success.%x %x\n",rsp->accessaddr,rsp->channel );
 }
 
@@ -120,9 +145,24 @@ static void rfProcessRx( rfPackage_t *pPkt )
             // 数据发送成功
             if( pPkt->length > PKT_DATA_OFFSET+1 )
             {
-                gRxDataFlag = 1;
+                typeBufSize len;
+
                 pPkt_t = pPkt;
+                {
+                    rfRsp_t *pRsp_t = (rfRsp_t *)(pPkt_t+1);
+                    len = pPkt_t->length-PKT_DATA_OFFSET-1;
+                    gRfRxFlag = write_buf( pRfBuf, pRsp_t->other.rspData, &len );
+                    if( !len )
+                    {
+                        UART_Send(pRsp_t->other.rspData,pPkt_t->length-PKT_DATA_OFFSET-1);
+                    }
+                    if( !R8_UART_TFC )
+                    {
+                        PFIC_SetPendingIRQ( UART_IRQn );
+                    }
+                }
             }
+            getDataProbe = 6;
         }
         else if( pPkt->type == PKT_CMD_BOUND_RSP )
         {
@@ -137,32 +177,87 @@ static void rfProcessRx( rfPackage_t *pPkt )
                 gBoundStatus = BOUND_STATUS_EST;
                 UART_SetTimer( gInterval );
             }
+
+            if(  pPkt->length == PKT_DATA_OFFSET )
+            {
+
+            }
             // 状态应答为对端设备波特率
-            if( pRsp_t->opcode == OPCODE_BSP )
+            else if( pRsp_t->opcode == OPCODE_BSP )
             {
                 UART_SetBuad( pRsp_t->buad_t.BaudRate );
-                if(pRsp_t->buad_t.ioStaus&0x20)
+
+                // 停止位
+                if( pRsp_t->buad_t.StopBits )
                 {
-                    GPIOA_SetBits(DTR);
+                    R8_UART_LCR |= RB_LCR_STOP_BIT ; // 2个停止位
                 }
                 else
                 {
-                    GPIOA_ResetBits(DTR);
+                    R8_UART_LCR &= ~RB_LCR_STOP_BIT;// 1个停止位
                 }
-                if(pRsp_t->buad_t.ioStaus&0x40)
+
+                // 奇偶校验
+                if( pRsp_t->buad_t.ParityType )
                 {
-                    GPIOA_SetBits(RTS);
+                    R8_UART_LCR &= ~RB_LCR_PAR_MOD;
+                    R8_UART_LCR |= ((pRsp_t->buad_t.ParityType-1)&3)<<4;
+                    R8_UART_LCR |= RB_LCR_PAR_EN;
                 }
                 else
                 {
-                    GPIOA_ResetBits(RTS);
+                    R8_UART_LCR &= ~RB_LCR_PAR_EN;
                 }
+
+                // 数据位
+                R8_UART_LCR &= ~RB_LCR_WORD_SZ;
+                R8_UART_LCR |= (pRsp_t->buad_t.DataBits-5);
+                if( pRsp_t->buad_t.DataBits )
+                {
+
+                }
+
+#if 1
+                // DTR 电平状态
+                if( pRsp_t->buad_t.ioStaus&0x20 )
+                {
+                    GPIOA_SetBits( DTR );
+                }
+                else
+                {
+                    GPIOA_ResetBits( DTR );
+                }
+                // RTS 电平状态
+                if( pRsp_t->buad_t.ioStaus&0x40 )
+                {
+                    GPIOA_SetBits( RTS );
+                }
+                else
+                {
+                    GPIOA_ResetBits( RTS );
+                }
+#endif
             }
             else if( pRsp_t->opcode == OPCODE_DATA )
             {
-                gRxDataFlag = 1;
+                typeBufSize len;
+
                 pPkt_t = pPkt;
                 getDataProbe = 6;
+                {
+                    rfRsp_t *pRsp_t = (rfRsp_t *)(pPkt_t+1);
+                    len = pPkt_t->length-PKT_DATA_OFFSET-1;
+                    gRfRxFlag = write_buf( pRfBuf, pRsp_t->other.rspData, &len );
+                    if( !len )
+                    {
+                        UART_Send(pRsp_t->other.rspData,pPkt_t->length-PKT_DATA_OFFSET-1);
+                    }
+                    if( !R8_UART_TFC )
+                    {
+                        PFIC_SetPendingIRQ( UART_IRQn );
+                    }
+                }
+                GPIOA_InverseBits(LED_PIN);//LED
             }
         }
         else
@@ -188,17 +283,13 @@ static void rfProcessRx( rfPackage_t *pPkt )
 __HIGH_CODE
 static void rfProcessTx( void )
 {
-    if( gRfStatus == RF_STATUS_TX )
-    {
-        gRfStatus = RF_STATUS_WAITRSP;
-    }
-    else if( gRfStatus == RF_STATUS_RETX )
+    if( gRfStatus == RF_STATUS_RETX )
     {
         gRfStatus = RF_STATUS_REWAIT;
     }
-    else if( gRfStatus == RF_STATUS_GETS )
+    else
     {
-
+        gRfStatus = RF_STATUS_WAITRSP;
     }
     rf_rx_start( 150 );
 }
@@ -215,14 +306,10 @@ static void rfProcessTx( void )
 __HIGH_CODE
 static  void rfProcessTimeout( void )
 {
+    gTxBuf.status = STA_RESEND;
     if( gRfStatus == RF_STATUS_WAITRSP )
     {
         gTxBuf.resendCount = RESEND_COUNT;
-        gTxBuf.status = STA_RESEND;
-    }
-    else if( gRfStatus == RF_STATUS_REWAIT )
-    {
-        gTxBuf.status = STA_RESEND;
     }
     else
     {
@@ -232,16 +319,16 @@ static  void rfProcessTimeout( void )
             {
                 rf_disconnect( );
             }
+            gTxBuf.status = STA_IDLE;
         }
         else if( gBoundStatus == BOUND_STATUS_EST )
         {
             if( ++ gTimeout > gTimeoutMax )
             {
                 rf_disconnect( );
+                gTxBuf.status = STA_IDLE;
             }
         }
-        // 获取状态可以丢弃，不重传
-        gTxBuf.status = STA_IDLE;
     }
 }
 
@@ -260,13 +347,19 @@ void RF_StatusQuery( void )
 {
     uint8_t s;
 
-    if( gRxDataFlag )
+    //获取bound标志
+    if(RF_bound_Flag)
     {
-        rfRsp_t *pRsp_t = (rfRsp_t *)(pPkt_t+1);
-
-        UART_Send(pRsp_t->other.rspData,pPkt_t->length-PKT_DATA_OFFSET-1);
-        gRxDataFlag = 0;
+        ledcount++;
+        if(ledcount >=50000)
+        {
+            GPIOA_ResetBits(LED_PIN);  
+            ledcount = 0;
+        }
     }
+    else
+        GPIOA_SetBits(LED_PIN);
+
     if( gTxBuf.status == STA_IDLE )
     {
         rfPackage_t *pPkt_t = (rfPackage_t *)gTxBuf.TxBuf;
@@ -276,6 +369,8 @@ void RF_StatusQuery( void )
         // 发送数据
         if( s == 0 )
         {
+            GPIOA_InverseBits(LED_PIN);//LED
+
             gRfStatus = RF_STATUS_TX;
             pPkt_t->type = PKT_DATA_FLAG;
             pPkt_t->length = gTxBuf.len + PKT_DATA_OFFSET;
@@ -362,9 +457,10 @@ void RF_UartTxInit( void )
     rfBoundInfo_t *pInfo;
     PRINT("----------------- rf uart tx mode -----------------\n");
     gTxDataSeq = 0;
-    gRxDataFlag = 0;
+    gRfRxFlag = 0;
     gBoundStatus = BOUND_STATUS_IDLE;
     gTxBuf.status = 0;
+    rf_buffer_create(&pRfBuf);
 
     pInfo = (rfBoundInfo_t *)(BOUND_INFO_FLASH_ADDR);
     if( pInfo->head == BOUND_INFO_HEAD )

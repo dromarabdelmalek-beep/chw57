@@ -74,8 +74,6 @@ static uint8_t OTAProfileCharUserDesp[12] = "OTA Channel";
 // write and read buffer
 static uint8_t OTAProfileReadLen;
 static uint8_t OTAProfileReadBuf[IAP_LEN];
-static uint8_t OTAProfileWriteLen;
-static uint8_t OTAProfileWriteBuf[IAP_LEN];
 
 /*********************************************************************
  * Profile Attributes - Table
@@ -273,13 +271,10 @@ static bStatus_t OTAProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 //Write the value
                 if(status == SUCCESS)
                 {
-                    uint16_t i;
-                    uint8_t *p_rec_buf;
-
-                    OTAProfileWriteLen = len;
-                    p_rec_buf = pValue;
-                    for(i = 0; i < OTAProfileWriteLen; i++)
-                        OTAProfileWriteBuf[i] = p_rec_buf[i];
+                    if(len && OTAProfile_AppCBs && OTAProfile_AppCBs->pfnOTAProfileWrite)
+                    {
+                        OTAProfile_AppCBs->pfnOTAProfileWrite(OTAPROFILE_CHAR, pValue, len);
+                    }
                 }
                 break;
             }
@@ -296,11 +291,6 @@ static bStatus_t OTAProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pA
         status = ATT_ERR_INVALID_HANDLE;
     }
 
-    if(OTAProfileWriteLen && OTAProfile_AppCBs && OTAProfile_AppCBs->pfnOTAProfileWrite)
-    {
-        OTAProfile_AppCBs->pfnOTAProfileWrite(OTAPROFILE_CHAR, OTAProfileWriteBuf, OTAProfileWriteLen);
-        OTAProfileWriteLen = 0;
-    }
 
     return (status);
 }
@@ -321,7 +311,7 @@ bStatus_t OTAProfile_SendData(unsigned char paramID, unsigned char *p_data, unsi
     bStatus_t status = SUCCESS;
 
     /* 数据长度超出范围 */
-    if(send_len > 20)
+    if(send_len > 36)
         return 0xfe;
 
     OTAProfileReadLen = send_len;

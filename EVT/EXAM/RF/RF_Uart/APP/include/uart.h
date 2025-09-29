@@ -17,14 +17,15 @@
 #include "buf.h"
 
 
+#define  UART_BUF_LEN   (1024*3)
+
 #define    TXD_PIN   bTXD_3  // PA0
 #define    RXD_PIN   bRXD_3  // PA1
 
 #define    DTR       (1<<2)  // PA2
 #define    RTS       (1<<3)  // PA3
 
-#define  UART_BUF_LEN   (1024*3)
-
+#define    LED_PIN        (1<<7)  // PA7
 enum uart_status
 {
     UART_STATUS_IDLE,

@@ -24,7 +24,8 @@ extern "C"
 
 #define  BOUND_INFO_FLASH_ADDR         (1024*236)
 
-
+extern uint32_t  gRfRxFlag;
+extern struct simple_buf *pRfBuf;
 
 /* rf tx status */
 #define   STA_IDLE          0x00
