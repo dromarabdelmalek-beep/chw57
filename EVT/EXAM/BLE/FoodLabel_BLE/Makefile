@@ -121,11 +121,11 @@ CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
 #################################################################################
 # Linker flags
 #################################################################################
-# Link script
-LDSCRIPT = $(SDK_ROOT)/EXAM/SRC/Ld/Link.ld
+# Link script (custom linker script with 20KB RAM allocation)
+LDSCRIPT = Link_FoodLabel.ld
 
 # Libraries
-LIBS = -L$(BLE_LIB_DIR) -lCH572BLE_PERI -lc -lm -lnosys
+LIBS = -L$(BLE_LIB_DIR) -L$(STDPERIPH_DIR) -lCH572BLE_PERI -lISP572 -lc -lm -lnosys
 LIBDIR =
 
 LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(PROJECT).map,--cref -Wl,--gc-sections
