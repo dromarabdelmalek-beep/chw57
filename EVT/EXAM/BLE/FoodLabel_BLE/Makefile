@@ -98,7 +98,8 @@ C_INCLUDES =  \
 -I$(HAL_DIR)/include \
 -I$(STDPERIPH_DIR)/inc \
 -I$(BLE_LIB_DIR) \
--I$(SDK_ROOT)/EXAM/SRC/Ld
+-I$(SDK_ROOT)/EXAM/SRC/Ld \
+-I$(SDK_ROOT)/EXAM/SRC/RVMSIS
 
 #################################################################################
 # Compiler flags
