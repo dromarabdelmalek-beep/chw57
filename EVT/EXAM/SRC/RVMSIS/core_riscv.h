@@ -642,8 +642,14 @@ __attribute__((always_inline)) RV_STATIC_INLINE uint32_t __get_SP(void)
  */
 __attribute__((always_inline)) RV_STATIC_INLINE void __MCPY(void *dst, void *start, void *end)
 {
-    __asm volatile("mcpy %2, %0, %1" : \
-                   "+r"(start), "+r"(dst) : "r"(end) : "memory");
+    // Use standard C implementation instead of WCH's custom mcpy instruction
+    // for compatibility with standard RISC-V toolchains
+    char *d = (char *)dst;
+    char *s = (char *)start;
+    char *e = (char *)end;
+    while (s < e) {
+        *d++ = *s++;
+    }
 }
 
 #define SysTick_SR_SWIE             (1 << 31)
