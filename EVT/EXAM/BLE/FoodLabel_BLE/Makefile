@@ -53,7 +53,8 @@ BIN = $(CP) -O binary -S
 # M: Integer multiplication and division
 # A: Atomic instructions
 # C: Compressed instructions
-ARCH = -march=rv32imac
+# Zicsr: Control and Status Register instructions
+ARCH = -march=rv32imac_zicsr
 ABI = -mabi=ilp32
 
 # MCU settings
@@ -109,8 +110,8 @@ C_DEFS =  \
 -DCH572 \
 -DCHIP_ID=ID_CH572
 
-# Optimization flags
-OPT = -Og
+# Optimization flags (Os = optimize for size, recommended for embedded systems)
+OPT = -Os
 
 # C flags
 CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
