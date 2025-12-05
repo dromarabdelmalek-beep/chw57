@@ -200,12 +200,25 @@ FoodLabel_BLE/
 
 ## Building the Project
 
+### Architecture
+
+**CH57x MCU**: RISC-V RV32IMAC core (NOT ARM)
+- RV32I: Base integer instruction set
+- M: Integer multiplication and division
+- A: Atomic instructions
+- C: Compressed instructions
+
 ### Prerequisites
 
-1. **WCH MounRiver Studio** or **command-line toolchain**
-   - Download from: http://www.mounriver.com/
+1. **RISC-V Toolchain** (riscv-none-embed-gcc)
+   - **macOS**: `brew install xpack-riscv-none-embed-gcc`
+   - **Linux**: Install from package manager or MounRiver Studio
+   - **Windows**: MounRiver Studio (includes toolchain)
+   - Download MounRiver Studio: http://www.mounriver.com/
 
 2. **CH57x EVT SDK** (already present in this repository)
+
+> 📖 **For detailed setup instructions**, see [QUICKSTART.md](QUICKSTART.md)
 
 ### Build Steps
 
@@ -213,7 +226,7 @@ FoodLabel_BLE/
 
 1. Open MounRiver Studio
 2. Import project: `File` → `Import` → `Existing Projects into Workspace`
-3. Select directory: `/home/user/chw57/EVT/EXAM/BLE/FoodLabel_BLE`
+3. Select directory: `EVT/EXAM/BLE/FoodLabel_BLE`
 4. Build: `Project` → `Build All`
 5. Flash: Connect debugger → `Run` → `Debug`
 
@@ -221,16 +234,15 @@ FoodLabel_BLE/
 
 ```bash
 # Navigate to project directory
-cd /home/user/chw57/EVT/EXAM/BLE/FoodLabel_BLE
+cd EVT/EXAM/BLE/FoodLabel_BLE
 
-# Create Makefile (adapt from Peripheral example)
-cp ../Peripheral/Makefile ./
-
-# Edit Makefile to include all source files
-# Build
+# Build (Makefile auto-detects RISC-V toolchain)
+make clean
 make
 
 # Flash using WCHISPTool
+make flash
+# OR manually:
 wchisptool -f build/FoodLabel_BLE.hex
 ```
 

@@ -1,7 +1,7 @@
 #################################################################################
 # Makefile for CH57x Food Label BLE Application
-# Target: CH570/CH571/CH572/CH573
-# Toolchain: arm-none-eabi-gcc (from MounRiver Studio or ARM GCC)
+# Target: CH570/CH571/CH572/CH573 (RISC-V RV32IMAC)
+# Toolchain: riscv-none-embed-gcc (from MounRiver Studio or xPack)
 #################################################################################
 
 # Project name
@@ -16,28 +16,48 @@ BLE_LIB_DIR = $(SDK_ROOT)/EXAM/BLE/LIB
 HAL_DIR = $(SDK_ROOT)/EXAM/BLE/HAL
 STDPERIPH_DIR = $(SDK_ROOT)/EXAM/SRC/StdPeriphDriver
 
-# Toolchain
-PREFIX = arm-none-eabi-
+# Toolchain - RISC-V (detect available toolchain)
+# Try different prefixes in order of preference
+TOOLCHAIN_PREFIXES = riscv-none-embed- riscv64-unknown-elf- riscv-none-elf- riscv32-unknown-elf-
+
+# Detect which toolchain is available
+PREFIX := $(shell \
+    for prefix in $(TOOLCHAIN_PREFIXES); do \
+        if command -v $${prefix}gcc >/dev/null 2>&1; then \
+            echo $$prefix; \
+            break; \
+        fi; \
+    done)
+
+# Fallback if detection fails
+ifeq ($(PREFIX),)
+    PREFIX = riscv-none-embed-
+    $(warning WARNING: RISC-V toolchain not detected, using default: $(PREFIX))
+    $(warning Install with: brew install xpack-riscv-none-embed-gcc)
+endif
+
 CC = $(PREFIX)gcc
 AS = $(PREFIX)gcc -x assembler-with-cpp
 CP = $(PREFIX)objcopy
 SZ = $(PREFIX)size
+AR = $(PREFIX)ar
+OD = $(PREFIX)objdump
 HEX = $(CP) -O ihex
 BIN = $(CP) -O binary -S
 
 #################################################################################
-# CPU and FPU settings
+# RISC-V CPU settings
 #################################################################################
-CPU = -mcpu=cortex-m0
-
-# FPU settings (CH57x has no FPU)
-FPU =
-
-# Float ABI
-FLOAT-ABI =
+# CH57x uses RISC-V RV32IMAC core
+# RV32I: Base integer instruction set
+# M: Integer multiplication and division
+# A: Atomic instructions
+# C: Compressed instructions
+ARCH = -march=rv32imac
+ABI = -mabi=ilp32
 
 # MCU settings
-MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
+MCU = $(ARCH) $(ABI) -msmall-data-limit=8 -mno-save-restore
 
 #################################################################################
 # Source files
@@ -171,7 +191,7 @@ help:
 	@echo "  make flash    - Build and flash to device"
 	@echo ""
 	@echo "Prerequisites:"
-	@echo "  - arm-none-eabi-gcc toolchain in PATH"
+	@echo "  - RISC-V toolchain in PATH (riscv-none-embed-gcc)"
 	@echo "  - wchisptool for flashing (optional)"
 
 #################################################################################

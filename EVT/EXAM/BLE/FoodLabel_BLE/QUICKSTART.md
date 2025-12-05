@@ -4,31 +4,86 @@ Get your CH57x Food Label up and running in 10 minutes!
 
 ## ⚡ Prerequisites (5 min)
 
-### 1. Install Toolchain
+### 1. Install RISC-V Toolchain
 
-#### Option A: MounRiver Studio (Recommended for Windows)
+> ⚠️ **IMPORTANT**: CH572/CH573 uses **RISC-V** core, not ARM!
+
+#### Option A: MounRiver Studio (Recommended - All Platforms)
 ```bash
 # Download from: http://www.mounriver.com/
+# Includes RISC-V toolchain, IDE, and debugger
 # Install and add to PATH
+
+# After installation, verify:
+riscv-none-embed-gcc --version
 ```
 
-#### Option B: ARM GCC Toolchain (Linux/Mac)
+#### Option B: RISC-V GCC Toolchain (macOS - Homebrew)
+```bash
+# Install RISC-V toolchain
+brew tap riscv-software-src/riscv
+brew install riscv-tools
+
+# Or install from xPack (recommended for macOS)
+brew install xpack-riscv-none-embed-gcc
+
+# Verify installation
+riscv-none-embed-gcc --version
+# OR
+riscv64-unknown-elf-gcc --version
+
+# If command not found, check PATH:
+export PATH="/usr/local/opt/riscv-gnu-toolchain/bin:$PATH"
+```
+
+#### Option C: RISC-V GCC Toolchain (Linux)
 ```bash
 # Ubuntu/Debian
 sudo apt-get update
-sudo apt-get install gcc-arm-none-eabi
+sudo apt-get install gcc-riscv64-unknown-elf
 
-# Mac (via Homebrew)
-brew install arm-none-eabi-gcc
+# Or download prebuilt from SiFive/WCH
+wget https://github.com/sifive/freedom-tools/releases/download/v2020.12.0/riscv64-unknown-elf-gcc-10.2.0-2020.12.8-x86_64-linux-ubuntu14.tar.gz
+tar xzf riscv64-unknown-elf-gcc-*.tar.gz
+export PATH=$PATH:$PWD/riscv64-unknown-elf-gcc-10.2.0-2020.12.8-x86_64-linux-ubuntu14/bin
 
 # Verify installation
-arm-none-eabi-gcc --version
+riscv64-unknown-elf-gcc --version
 ```
 
-### 2. Clone Repository
+#### Option D: Pre-built WCH Toolchain
 ```bash
+# Download WCH's toolchain (includes all needed tools)
+# Windows: Included in MounRiver Studio
+# macOS/Linux: Extract from WCH website or use xPack
+
+# xPack (easiest for macOS)
+npm install --global xpm
+xpm install --global @xpack-dev-tools/riscv-none-embed-gcc@latest
+
+# Verify
+riscv-none-embed-gcc --version
+```
+
+### 2. Clone Repository and Checkout Branch
+```bash
+# Clone the repository
 git clone https://github.com/dromarabdelmalek-beep/chw57.git
-cd chw57/EVT/EXAM/BLE/FoodLabel_BLE
+cd chw57
+
+# Checkout the FoodLabel BLE branch
+git checkout claude/add-ble-broadcast-01MMQ1g7y7HE1cEQ7AbN1bFH
+
+# Verify you're on the correct branch
+git branch
+# Should show: * claude/add-ble-broadcast-01MMQ1g7y7HE1cEQ7AbN1bFH
+
+# Navigate to project directory
+cd EVT/EXAM/BLE/FoodLabel_BLE
+
+# Verify files exist
+ls -la
+# Should see: Makefile, README.md, APP/, Drivers/, etc.
 ```
 
 ## 🔌 Hardware Setup (3 min)
@@ -120,10 +175,23 @@ make
 
 ### Troubleshooting Build Errors
 
-**Error: `arm-none-eabi-gcc: command not found`**
+**Error: `riscv-none-embed-gcc: command not found`**
 ```bash
-# Add toolchain to PATH
-export PATH=$PATH:/path/to/arm-toolchain/bin
+# For macOS (xPack toolchain)
+export PATH="$HOME/Library/xPacks/@xpack-dev-tools/riscv-none-embed-gcc/.content/bin:$PATH"
+
+# For macOS (Homebrew)
+export PATH="/usr/local/opt/riscv-gnu-toolchain/bin:$PATH"
+
+# For Linux
+export PATH=$PATH:/path/to/riscv-toolchain/bin
+
+# Or use MounRiver Studio toolchain
+export PATH="/Applications/MounRiver_Studio.app/Contents/toolchain/RISC-V/bin:$PATH"
+
+# Add to ~/.zshrc or ~/.bash_profile to make permanent
+echo 'export PATH="/usr/local/opt/riscv-gnu-toolchain/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
 **Error: `libCH572BLE_PERI.a: No such file`**
