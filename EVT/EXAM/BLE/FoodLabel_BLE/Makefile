@@ -86,7 +86,7 @@ $(STDPERIPH_DIR)/CH57x_uart.c
 
 # ASM sources
 ASM_SOURCES =  \
-$(SDK_ROOT)/EXAM/SRC/Startup/startup_CH572.s
+$(SDK_ROOT)/EXAM/SRC/Startup/startup_CH572.S
 
 #################################################################################
 # Include paths
@@ -142,14 +142,14 @@ OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(C_SOURCES:.c=.o)))
 vpath %.c $(sort $(dir $(C_SOURCES)))
 
 # List of ASM program objects
-OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASM_SOURCES:.s=.o)))
-vpath %.s $(sort $(dir $(ASM_SOURCES)))
+OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASM_SOURCES:.S=.o)))
+vpath %.S $(sort $(dir $(ASM_SOURCES)))
 
 $(BUILD_DIR)/%.o: %.c Makefile | $(BUILD_DIR)
 	@echo "CC $<"
 	@$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
 
-$(BUILD_DIR)/%.o: %.s Makefile | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: %.S Makefile | $(BUILD_DIR)
 	@echo "AS $<"
 	@$(AS) -c $(CFLAGS) $< -o $@
 
