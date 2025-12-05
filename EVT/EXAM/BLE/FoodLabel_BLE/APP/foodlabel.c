@@ -13,6 +13,7 @@
 #include "epaper_driver.h"
 #include "sht4x_driver.h"
 #include "flash_storage.h"
+#include "button_driver.h"
 
 /*********************************************************************
  * MACROS
