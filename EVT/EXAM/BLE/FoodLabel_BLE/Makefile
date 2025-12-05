@@ -54,7 +54,8 @@ BIN = $(CP) -O binary -S
 # A: Atomic instructions
 # C: Compressed instructions
 # Zicsr: Control and Status Register instructions
-ARCH = -march=rv32imac_zicsr
+# Zifencei: Instruction-Fetch Fence
+ARCH = -march=rv32imac_zicsr_zifencei
 ABI = -mabi=ilp32
 
 # MCU settings

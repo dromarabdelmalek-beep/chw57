@@ -29,7 +29,7 @@ CP = $(PREFIX)objcopy
 SZ = $(PREFIX)size
 
 # CPU settings
-ARCH = -march=rv32imac_zicsr
+ARCH = -march=rv32imac_zicsr_zifencei
 ABI = -mabi=ilp32
 MCU = $(ARCH) $(ABI) -msmall-data-limit=8 -mno-save-restore
 
