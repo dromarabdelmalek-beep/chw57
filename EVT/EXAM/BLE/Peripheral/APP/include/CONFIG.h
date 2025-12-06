@@ -140,8 +140,8 @@
 
 /*********************************************************************
  * CONVERSION MACROS
+ * Note: US_TO_RTC and MS1_TO_SYSTEM_TIME are already defined in
+ * RTC.h and CH572BLEPeri_LIB.h, so we use those definitions
  */
-#define US_TO_RTC(us)                       ((us) * 32 / 1000)  // Microseconds to RTC ticks
-#define MS1_TO_SYSTEM_TIME(ms)              ((ms) * 1600)        // Milliseconds to TMOS system time
 
 #endif /* __CONFIG_H */
