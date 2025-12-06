@@ -1,0 +1,13 @@
+# Python dependencies for SmartFood BLE tools
+
+# BLE scanning and communication
+bleak>=0.20.0
+
+# Data processing
+struct
+
+# Optional: For advanced features
+# paho-mqtt>=1.6.1        # MQTT gateway
+# influxdb-client>=1.36.0 # Time-series database
+# pyserial>=3.5           # Serial communication
+# matplotlib>=3.7.0       # Data visualization
